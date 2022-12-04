@@ -1,6 +1,16 @@
 <template>
   <div class="h-screen relative">
-    <GeoErrorModal />
+    <!-- v-if, v-bind shorthand, and emit (listen for event) -->
+    <GeoErrorModal 
+      v-if="geoError"
+      :geoErrorMsg="geoErrorMsg"
+      @closeGeoError="closeGeoError"/>
+    <MapFeatures 
+      :coords="coords"
+      :fetchCoords="fetchCoords"
+      @getGeolocation="getGeolocation"
+      @plotResult="plotResult"
+    />
     <div id="map" class="h-full z-[1]"></div>
     
   </div>
@@ -11,6 +21,7 @@
 import leaflet from "leaflet";
 import { onMounted, ref } from "vue";
 import GeoErrorModal from "@/components/GeoErrorModal.vue";
+import MapFeatures from "@/components/MapFeatures.vue"
 // Like react, ref allows our data to be interactive from inside our setup() function
 // "It allows us to obtain a direct reference to a specific DOM element or child
 // component instance after it's mounted. 
@@ -22,7 +33,8 @@ import GeoErrorModal from "@/components/GeoErrorModal.vue";
 export default {
   name: 'HomeView',
   components: {
-    GeoErrorModal
+    GeoErrorModal,
+    MapFeatures
   },
   setup() {
     let map;
@@ -53,23 +65,32 @@ export default {
     const geoErrorMsg = ref(null);
 
     const getGeolocation = () => {
-      fetchCoords.value = true; // this is how you change value of a ref; have to have .value
-      navigator.geolocation.getCurrentPosition(setCoords, getLocErr); 
-      //https://developer.mozilla.org/en-US/docs/Web/API/Navigator/geolocation - success callback, error callback
+      // Check sessionStorage for coords (DO THIS LATER)
+      if (!coords.value) { // Will remove coords on click if user already has location
+        if (sessionStorage.getItem("coords")) {
+          coords.value = JSON.parse(sessionStorage.getItem('coords'));
+          plotGeolocation(coords.value);
+          return;
+        }
       
+        // ! This is done early; this gets coords from geolocation API
+        fetchCoords.value = true; // this is how you change value of a ref; have to have .value
+        navigator.geolocation.getCurrentPosition(setCoords, getLocErr); 
+        //https://developer.mozilla.org/en-US/docs/Web/API/Navigator/geolocation - success callback, error callback
+        return;
+      }
 
-      
-    }
+      // if session storage doesn't have coords at all, remove location
+      coords.value = null;
+      sessionStorage.removeItem("coords");
+      map.removeLayer(geoMarker.value);
+      return;
+    };
+
     const setCoords = (pos) => {
       console.log(pos) // Take a note of what's in the JSON! 
       //! FIRST TIME: JUST LOG IT 
 
-      // Check sessionStorage for coords (DO THIS LATER)
-      if (sessionStorage.getItem('coords')) {
-        coords.value = JSON.parse(sessionStorage.getItem('coords'));
-        plotGeolocation(coords.value);
-        return;
-      }
       // runs when we have success
       fetchCoords.value = null;
       // stashing coordinates to session storage so we don't have to keep asking for loc
@@ -88,12 +109,13 @@ export default {
     const getLocErr = (err) => {
       // console.log(err);
 
-      // after finishing setCoords:
+      // after finishing setCoords (this will prevent further searching):
       fetchCoords.value = null;
       geoError.value = true;
       geoErrorMsg.value = err.message;
     };
 
+    // sets values to null after geo error is done / gone
     const closeGeoError = () => {
       geoError.value = null;
       geoErrorMsg.value = null;
@@ -108,7 +130,8 @@ export default {
 
       // create new marker with coords and the custom icon
       // https://leafletjs.com/reference.html#marker
-      geoMarker.value = leaflet.marker([coords.lat, coords.lng], { icon: customMarker })
+      geoMarker.value = leaflet
+        .marker([coords.lat, coords.lng], { icon: customMarker })
         .addTo(map);
 
       // setting map view to current loc
@@ -117,8 +140,8 @@ export default {
 
 
     }
-
-    return { coords, geoMarker, closeGeoError };
+    // what we return we can use in our template tag
+    return { coords, geoMarker, closeGeoError, geoErrorMsg, fetchCoords, geoError, getGeolocation };
   },
 };
 </script>
