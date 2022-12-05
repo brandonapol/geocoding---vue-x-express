@@ -91,11 +91,11 @@
                             proximity: props.coords ? `${props.coords.lng}, ${props.coords.lat}` : '0, 0',
                         });
                         const getData = await axios.get(
-                            `http://localhost:3000/api/search/${searchQuery.value}?${params}`
+                            `api/search/${searchQuery.value}?${params}`
                         );
                         searchData.value = getData.data.features;
                         // console.log(getData)
-                        console.log(searchData.value)
+                        // console.log(searchData.value)
                     }
                 }, 750)
             }
