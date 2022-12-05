@@ -10,6 +10,9 @@
       :fetchCoords="fetchCoords"
       @getGeolocation="getGeolocation"
       @plotResult="plotResult"
+      @toggleSearchResults="toggleSearchResults"
+      @removeResult="removeResult"
+      :searchResults="searchResults"
     />
     <div id="map" class="h-full z-[1]"></div>
     
@@ -53,7 +56,11 @@ export default {
               accessToken: process.env.VUE_APP_API_KEY,
             }
          )
-      .addTo(map);   
+        .addTo(map);  
+      // https://nodejs.org/docs/latest/api/events.html#eventsonemitter-eventname-options
+      map.on('moveend', () => {
+        closeSearchResults();
+      })
 
       getGeolocation();
     });
@@ -121,6 +128,31 @@ export default {
       geoErrorMsg.value = null;
     }
 
+    const resultMarker = ref(null);
+    const plotResult = (coords) => {
+      // Check if resultMarker has val
+      if (resultMarker.value) {
+        map.removeLayer(resultMarker.value);
+      }
+        const customMarker = leaflet.icon({
+        iconUrl: require('../assets/map-marker-blue.svg'),
+        iconSize: [35, 35],
+      });
+
+      // create new marker with coords and the custom icon
+      // https://leafletjs.com/reference.html#marker
+      // Slighty different than our plotGeolocation info
+      resultMarker.value = leaflet
+        .marker([coords.coordinates[1], coords.coordinates[0]], { icon: customMarker })
+        .addTo(map);
+
+      // setting map view to current loc
+      map.setView([coords.coordinates[1], coords.coordinates[0]], 15);
+
+      closeSearchResults();
+
+    }
+
     const plotGeolocation = (coords) => {
       // create custom marker
       const customMarker = leaflet.icon({
@@ -140,8 +172,23 @@ export default {
 
 
     }
+
+    const searchResults = ref(null);
+    const toggleSearchResults = () => {
+      searchResults.value = !searchResults.value;
+    };
+    const closeSearchResults = () => {
+      searchResults.value = null;
+    };
+
+    const removeResult = () => {
+      map.removeLayer(resultMarker.value);
+    }
+
     // what we return we can use in our template tag
-    return { coords, geoMarker, closeGeoError, geoErrorMsg, fetchCoords, geoError, getGeolocation };
+    return { coords, geoMarker, closeGeoError, geoErrorMsg, 
+      fetchCoords, geoError, getGeolocation, plotResult, searchResults, 
+      toggleSearchResults, closeSearchResults, removeResult };
   },
 };
 </script>
